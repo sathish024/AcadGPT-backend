@@ -304,12 +304,12 @@ app.post("/ask", async (req, res) => {
     const { question, subject } = req.body;
     const regMatch = question.match(/(?:reg|register)\s*(?:no|number)?\s*(?:is|:|=)?\s*(\w+)/i);
 
-        if (regMatch) {
-          const regNo = regMatch[1];
-          const result = markAssignmentSubmitted(regNo);
-
-          return res.json({ answer: result.message });
-        }
+    if (regMatch) {
+      const regNo = regMatch[1];
+      const result = markAssignmentSubmitted(regNo);
+      return res.json({ answer: result.message });
+    }
+    
     // Check if this is a file-related request
     const fileResponse = handleFileRequest(question);
     if (fileResponse) {
@@ -369,6 +369,9 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
       }
     }
 
+    // Check if this is a textbook-related question
+    const isTextbookQuestion = subject && textbookLibrary[subject] && textbookLibrary[subject].length > 0;
+    
     // Build context for AI
     let contextForAI = `AVAILABLE FILES IN LIBRARY: ${availableFiles.map(f => f.name).join(", ")}\n\n`;
     contextForAI += excelContext + "\n\n";
@@ -377,8 +380,13 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
       contextForAI += `UPLOADED IMAGE CONTENT:\n${studentTempContext.substring(0, 8000)}\n\n`;
     }
 
+    // Only add textbook content if it exists and subject is specified
+    let textbookContent = "";
     if (subject && textbookLibrary[subject]) {
-      contextForAI += `TEXTBOOK CONTENT (${subject}):\n${textbookLibrary[subject].substring(0, 15000)}\n\n`;
+      textbookContent = textbookLibrary[subject];
+      if (textbookContent && textbookContent.length > 0) {
+        contextForAI += `TEXTBOOK CONTENT (${subject}):\n${textbookContent.substring(0, 15000)}\n\n`;
+      }
     }
 
     const chatCompletion = await groq.chat.completions.create({
@@ -388,13 +396,22 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
           content: `
             You are an academic assistant with access to files.
 
+            CRITICAL INSTRUCTION - INFORMATION AVAILABILITY CHECK:
+            1. If the user asks a question about a specific subject and textbook content is provided, you MUST ONLY answer if the information is explicitly present in that textbook content.
+            2. If the information is NOT found in the provided textbook content, you MUST respond with: "I apologize, but the information you're looking for is not available in the uploaded textbook for ${subject}. Please try uploading a different textbook or consult your course materials."
+            3. Do NOT generate answers based on general knowledge or external information when textbook content is provided.
+            4. Only use your general knowledge if NO textbook content is provided AND NO uploaded image content is present.
+            5. If uploaded image content is present, prioritize answering from that content.
+
             Important capabilities:
             1. You can see all files in the library folder: ${availableFiles.map(f => f.name).join(", ")}
-            2. If a user asks for a specific file, tell them it's available and provide the download link: http://acadgpt-backend.onrender.com/download/filename
+            2. If a user asks for a specific file, only confirm it is available. Do NOT print any URLs. The frontend will handle the download button.
             3. If users ask "what files are available" or similar, list all files in the library
             4. Use uploaded image content if present
-            5. Use textbook content if present
+            5. Use textbook content if present, but ONLY if the information exists in that content
             6. Use Excel data if CRITICAL DATA FOUND is present
+
+            REMEMBER: When textbook content is provided, you MUST verify the information exists in that content before answering. If it doesn't exist, politely inform the user it's not available in their textbook.
 
             Never say you cannot see files - you have access to the library folder.
             Be professional and encouraging.
@@ -402,14 +419,42 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
         },
         {
           role: "user",
-          content: `CONTEXT:\n${contextForAI}\n\nQUESTION: ${question}`
+          content: `CONTEXT:\n${contextForAI}\n\nQUESTION: ${question}\n\nIMPORTANT: If this is about ${subject} and the answer is not in the provided textbook content, please inform me that the information is not available in my textbook.`
         }
       ],
       model: "llama-3.1-8b-instant",
-      temperature: 0.3, 
+      temperature: 0.1, // Lower temperature for more deterministic responses
     });
 
-    res.json({ answer: chatCompletion.choices[0]?.message?.content });
+    let aiText = chatCompletion.choices[0]?.message?.content || "";
+    
+    // Additional safety check: If this is a textbook question and answer seems too generic,
+    // verify if it actually came from the textbook
+    if (isTextbookQuestion && !aiText.includes("not available in the uploaded textbook") && 
+        !aiText.includes("not found in") && !aiText.toLowerCase().includes("apologize")) {
+      
+      // Check if the answer is too short or generic (might be AI's general knowledge)
+      const textbookLower = textbookContent.toLowerCase();
+      const questionKeywords = question.toLowerCase().split(' ')
+        .filter(word => word.length > 4) // Filter out small words
+        .slice(0, 5); // Take first 5 significant words
+      
+      let foundInTextbook = false;
+      for (const keyword of questionKeywords) {
+        if (textbookLower.includes(keyword)) {
+          foundInTextbook = true;
+          break;
+        }
+      }
+      
+      // If no keywords found in textbook, it's likely AI made up the answer
+      if (!foundInTextbook && questionKeywords.length > 0) {
+        aiText = `I apologize, but the information you're looking for is not available in the uploaded textbook for ${subject}. Please try uploading a different textbook or consult your course materials.`;
+      }
+    }
+    
+    aiText = aiText.replace(/https?:\/\/[^\s]+/g, "");
+    res.json({ answer: aiText });
     
   } catch (error) {
     console.error("Server Error:", error);
