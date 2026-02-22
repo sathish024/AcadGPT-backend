@@ -302,8 +302,9 @@ const handleFileRequest = (question) => {
 app.post("/ask", async (req, res) => {
   try {
     const { question, subject } = req.body;
+    
+    // Check for register number first
     const regMatch = question.match(/(?:reg|register)\s*(?:no|number)?\s*(?:is|:|=)?\s*(\w+)/i);
-
     if (regMatch) {
       const regNo = regMatch[1];
       const result = markAssignmentSubmitted(regNo);
@@ -311,10 +312,11 @@ app.post("/ask", async (req, res) => {
     }
     
     // Check if this is a file-related request
-     const fileResponse = handleFileRequest(question);
+    const fileResponse = handleFileRequest(question);
+    
     if (fileResponse) {
       if (fileResponse.type === 'specific') {
-        // Return the file information directly without going through AI
+        // THIS IS THE IMPORTANT PART - Return file info directly
         return res.json({ 
           answer: `The file "${fileResponse.file.name}" is available in the library.`,
           fileAvailable: true,
@@ -322,7 +324,7 @@ app.post("/ask", async (req, res) => {
           downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
         });
       } else {
-        // For file listings, just return the message without AI
+        // For listing files
         return res.json({ answer: fileResponse.message });
       }
     }
