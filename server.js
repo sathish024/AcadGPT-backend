@@ -390,7 +390,7 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
 
             Important capabilities:
             1. You can see all files in the library folder: ${availableFiles.map(f => f.name).join(", ")}
-            2. If a user asks for a specific file, tell them it's available and provide the download link: http://localhost:5000/download/filename
+            2. If a user asks for a specific file, tell them it's available and provide the download link: http://acadgpt-backend.onrender.com/download/filename
             3. If users ask "what files are available" or similar, list all files in the library
             4. Use uploaded image content if present
             5. Use textbook content if present
