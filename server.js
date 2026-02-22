@@ -318,7 +318,7 @@ app.post("/ask", async (req, res) => {
           answer: fileResponse.message,
           fileAvailable: true,
           fileName: fileResponse.file.name,
-          downloadUrl: `http://localhost:5000/download/${encodeURIComponent(fileResponse.file.name)}`
+          downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
         });
       } else {
         return res.json({ answer: fileResponse.message });
