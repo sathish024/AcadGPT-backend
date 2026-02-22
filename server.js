@@ -316,19 +316,16 @@ app.post("/ask", async (req, res) => {
     
     if (fileResponse) {
       if (fileResponse.type === 'specific') {
-        // THIS IS THE IMPORTANT PART - Return file info directly
-        return res.json({ 
-          answer: `The file "${fileResponse.file.name}" is available in the library.`,
-          fileAvailable: true,
-          fileName: fileResponse.file.name,
-          downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
-        });
-      } else {
+      return res.json({ 
+        answer: `Here is your file.`,
+        fileName: fileResponse.file.name,
+        downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
+      });
+    } else {
         // For listing files
         return res.json({ answer: fileResponse.message });
       }
     }
-    
     // Handle GPA/SGPA questions
     if (question.toLowerCase().includes("gpa") || question.toLowerCase().includes("sgpa")) {
       if (!studentTempContext || studentTempContext.length === 0) {
