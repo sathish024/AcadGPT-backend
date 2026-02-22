@@ -311,16 +311,18 @@ app.post("/ask", async (req, res) => {
     }
     
     // Check if this is a file-related request
-    const fileResponse = handleFileRequest(question);
+     const fileResponse = handleFileRequest(question);
     if (fileResponse) {
       if (fileResponse.type === 'specific') {
+        // Return the file information directly without going through AI
         return res.json({ 
-          answer: fileResponse.message,
+          answer: `The file "${fileResponse.file.name}" is available in the library.`,
           fileAvailable: true,
           fileName: fileResponse.file.name,
           downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
         });
       } else {
+        // For file listings, just return the message without AI
         return res.json({ answer: fileResponse.message });
       }
     }
