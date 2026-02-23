@@ -239,63 +239,50 @@ const getStudentDataFromExcel = (rollNo) => {
 
 // Function to handle file requests
 const handleFileRequest = (question) => {
-  // Update available files before checking
   scanLibraryFiles();
   
   const questionLower = question.toLowerCase();
-  
-  // Check if user is asking for a file
+
   const fileKeywords = [
-  'download',
-  'download pdf',
-  'download file',
-  'open file',
-  'send file',
-  'get pdf',
-  'give pdf',
-  'show files',
-  'list files',
-  'available files'
-];
+    'download',
+    'pdf',
+    'file',
+    'send',
+    'give',
+    'need',
+    'open'
+  ];
 
-  const hasFileKeyword = fileKeywords.some(keyword => questionLower.includes(keyword));
-  
-  if (hasFileKeyword) {
-    // Check for specific file name in the question
-    for (const file of availableFiles) {
-      const fileNameLower = file.name.toLowerCase();
-      if (questionLower.includes(fileNameLower.replace(/\.[^/.]+$/, "")) || // Without extension
-          questionLower.includes(fileNameLower)) { // With extension
-        return {
-          type: 'specific',
-          file: file,
-          message: `Here is the requested file: ${file.name}`        };
+  const hasFileIntent = fileKeywords.some(keyword =>
+    questionLower.includes(keyword)
+  );
+
+  if (!hasFileIntent) return null;
+
+  for (const file of availableFiles) {
+    const cleanFileName = file.name
+      .toLowerCase()
+      .replace(/\.[^/.]+$/, "")   // remove extension
+      .split(" ");               // split into words
+
+    // Count matching words
+    let matchCount = 0;
+
+    cleanFileName.forEach(word => {
+      if (questionLower.includes(word)) {
+        matchCount++;
       }
-    }
-    
-    // If asking for list of files
-    if (questionLower.includes('list') || 
-        questionLower.includes('available') || 
-        questionLower.includes('all files') ||
-        questionLower.includes('what files') ||
-        questionLower.includes('show me')) {
-      
-      if (availableFiles.length === 0) {
-        return {
-          type: 'list',
-          message: "No files are currently available in the library folder."
-        };
-      }
-      
-      const fileList = availableFiles.map(f => `📄 ${f.name} (${(f.size / 1024).toFixed(2)} KB)`).join('\n');
+    });
+
+    // If at least 60% words match → consider it correct file
+    if (matchCount >= Math.ceil(cleanFileName.length * 0.6)) {
       return {
-          type: 'list',
-          message: `Here are the files available in the library:\n\n${fileList}\n\nYou can ask me to download any of these files.`
-        };
-
+        type: 'specific',
+        file: file
+      };
     }
   }
-  
+
   return null;
 };
 
@@ -315,13 +302,13 @@ app.post("/ask", async (req, res) => {
 const fileResponse = handleFileRequest(question);
 
 if (fileResponse) {
-  if (fileResponse.type === 'specific') {
-    return res.json({ 
-      answer: `Here is your requested file: ${fileResponse.file.name}`,
-      fileName: fileResponse.file.name,
-      downloadUrl: `${req.protocol}://${req.get("host")}/download/${encodeURIComponent(fileResponse.file.name)}`
-    });
-  } else {
+ if (fileResponse) {
+  return res.json({ 
+    answer: `Here is your requested file: ${fileResponse.file.name}`,
+    fileName: fileResponse.file.name,
+    downloadUrl: `${req.protocol}://${req.get("host")}/download/${encodeURIComponent(fileResponse.file.name)}`
+  });
+}else {
     return res.json({ answer: fileResponse.message });
   }
 }
