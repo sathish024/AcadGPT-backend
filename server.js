@@ -311,21 +311,20 @@ app.post("/ask", async (req, res) => {
       return res.json({ answer: result.message });
     }
     
-    // Check if this is a file-related request
-    const fileResponse = handleFileRequest(question);
-    
-    if (fileResponse) {
-      if (fileResponse.type === 'specific') {
-      return res.json({ 
-        answer: `Here is your file.`,
-        fileName: fileResponse.file.name,
-        downloadUrl: `https://acadgpt-backend.onrender.com/download/${encodeURIComponent(fileResponse.file.name)}`
-      });
-    } else {
-        // For listing files
-        return res.json({ answer: fileResponse.message });
-      }
-    }
+  // Check if this is a file-related request
+const fileResponse = handleFileRequest(question);
+
+if (fileResponse) {
+  if (fileResponse.type === 'specific') {
+    return res.json({ 
+      answer: `Here is your requested file: ${fileResponse.file.name}`,
+      fileName: fileResponse.file.name,
+      downloadUrl: `${req.protocol}://${req.get("host")}/download/${encodeURIComponent(fileResponse.file.name)}`
+    });
+  } else {
+    return res.json({ answer: fileResponse.message });
+  }
+}
     // Handle GPA/SGPA questions
     if (question.toLowerCase().includes("gpa") || question.toLowerCase().includes("sgpa")) {
       if (!studentTempContext || studentTempContext.length === 0) {
@@ -406,11 +405,10 @@ SGPA = ${totalCreditPoints} / ${totalCredits} = ${sgpa}
 
             Important capabilities:
             1. You can see all files in the library folder: ${availableFiles.map(f => f.name).join(", ")}
-            2. If a user asks for a specific file, only confirm it is available. Do NOT print any URLs. The frontend will handle the download button.
-            3. If users ask "what files are available" or similar, list all files in the library
-            4. Use uploaded image content if present
-            5. Use textbook content if present, but ONLY if the information exists in that content
-            6. Use Excel data if CRITICAL DATA FOUND is present
+            2. If users ask "what files are available" or similar, list all files in the library
+            3. Use uploaded image content if present
+            4. Use textbook content if present, but ONLY if the information exists in that content
+            5. Use Excel data if CRITICAL DATA FOUND is present
 
             REMEMBER: When textbook content is provided, you MUST verify the information exists in that content before answering. If it doesn't exist, politely inform the user it's not available in their textbook.
 
