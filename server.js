@@ -240,17 +240,19 @@ const getStudentDataFromExcel = (rollNo) => {
 // Function to handle file requests
 const handleFileRequest = (question) => {
   scanLibraryFiles();
-  
+
   const questionLower = question.toLowerCase();
 
+  // ✅ Step 1: Detect file intent
   const fileKeywords = [
-    'download',
-    'pdf',
-    'file',
-    'send',
-    'give',
-    'need',
-    'open'
+    "pdf",
+    "file",
+    "download",
+    "send",
+    "give",
+    "need",
+    "open",
+    "get"
   ];
 
   const hasFileIntent = fileKeywords.some(keyword =>
@@ -259,28 +261,49 @@ const handleFileRequest = (question) => {
 
   if (!hasFileIntent) return null;
 
+  // ✅ Step 2: Smart matching
+  const userWords = questionLower.split(/\s+/);
+
+  const ignoreWords = ["pdf", "file", "download", "give", "send", "need", "open", "get"];
+
+  let bestMatch = null;
+  let highestScore = 0;
+
   for (const file of availableFiles) {
-    const cleanFileName = file.name
-      .toLowerCase()
-      .replace(/\.[^/.]+$/, "")   // remove extension
-      .split(" ");               // split into words
+    const cleanName = file.name.toLowerCase().replace(/\.[^/.]+$/, "");
+    const fileWords = cleanName.split(/\s+/);
 
-    // Count matching words
-    let matchCount = 0;
+    let score = 0;
 
-    cleanFileName.forEach(word => {
-      if (questionLower.includes(word)) {
-        matchCount++;
+    fileWords.forEach(word => {
+      if (ignoreWords.includes(word)) return;
+
+      if (userWords.includes(word)) {
+        // longer words are more specific
+        if (word.length > 4) {
+          score += 2;
+        } else {
+          score += 1;
+        }
       }
     });
 
-    // If at least 60% words match → consider it correct file
-    if (matchCount >= Math.ceil(cleanFileName.length * 0.6)) {
-      return {
-        type: 'specific',
-        file: file
-      };
+    // Bonus if filename starts with first word user typed
+    if (userWords[0] && cleanName.startsWith(userWords[0])) {
+      score += 3;
     }
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = file;
+    }
+  }
+
+  if (bestMatch && highestScore > 0) {
+    return {
+      type: "specific",
+      file: bestMatch
+    };
   }
 
   return null;
