@@ -302,11 +302,11 @@ app.post("/ask", async (req, res) => {
 const fileResponse = handleFileRequest(question);
 
 if (fileResponse) {
- if (fileResponse) {
+if (fileResponse) {
   return res.json({ 
     answer: `Here is your requested file: ${fileResponse.file.name}`,
     fileName: fileResponse.file.name,
-    downloadUrl: `${req.protocol}://${req.get("host")}/download/${encodeURIComponent(fileResponse.file.name)}`
+    downloadUrl: `/download/${encodeURIComponent(fileResponse.file.name)}`
   });
 }else {
     return res.json({ answer: fileResponse.message });
